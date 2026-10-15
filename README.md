@@ -108,7 +108,7 @@ dorthin.
 jop teilt sich die Herkunft `jerik.github.io` und damit grundsätzlich den
 Browserspeicher mit allen anderen GitHub-Pages-Projekten unter dieser Adresse;
 das ist vertretbar, weil dort nur eigene Projekte des Owners liegen, jop keine
-fremden Skripte lädt und der Token ohnehin nur eine Datei in einem Repository
+fremden Skripte lädt und der Token ohnehin nur ein einziges Repository
 lesen darf.
 
 ## Für die Entwicklung
