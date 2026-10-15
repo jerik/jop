@@ -10,6 +10,15 @@ export const STATES = [
 export const screenFor = config => config ? 'list' : 'setup';
 export const tagsFor = entries => [...new Set(entries.flatMap(entry => entry.tags))]
   .sort((a, b) => a.localeCompare(b, 'de'));
+// Count entries per tag; ties keep a stable alphabetical order.
+export function tagCountsFor(entries) {
+  const counts = new Map();
+  for (const entry of entries) {
+    for (const tag of new Set(entry.tags)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+  return [...counts].sort(([a, ac], [b, bc]) => bc - ac || a.localeCompare(b, 'de'));
+}
+export const filterSummary = query => `Filter · ${query.states.length + query.tags.length} aktiv`;
 export function messageForView(result, file) {
   return {
     message: result ? messageFor(result) : '',
@@ -79,7 +88,7 @@ export function createApp({ store, fetchImpl, persist, onChange = () => {} }) {
   };
 }
 
-export function mountApp(document, navigator, store, fetchImpl) {
+export function mountApp(document, navigator, store, fetchImpl, confirmImpl = message => document.defaultView.confirm(message)) {
   const root = document.getElementById('app');
   let query = { states: ['open'], tags: [], text: '' };
   function element(tag, text, className) {
@@ -88,7 +97,10 @@ export function mountApp(document, navigator, store, fetchImpl) {
     if (className) node.className = className;
     return node;
   }
+  let searchField, filterPanel;
   function render(view) {
+    const restoreFocus = searchField && document.activeElement === searchField;
+    const filterOpen = filterPanel?.open ?? false;
     root.replaceChildren(element('h1', 'jop'));
     if (view.screen === 'setup') {
       root.append(element('p', 'Journal einrichten'));
@@ -126,20 +138,28 @@ export function mountApp(document, navigator, store, fetchImpl) {
     }
     const clear = element('button', 'Zugang löschen');
     clear.type = 'button';
-    clear.addEventListener('click', () => app.clear());
-    root.append(clear);
+    clear.addEventListener('click', () => {
+      if (confirmImpl('Zugang und gespeicherte Kopie auf diesem Gerät löschen?')) app.clear();
+    });
     const messages = messageForView(view.result, view.file);
     const notice = element('p', [messages.message, view.warning].filter(Boolean).join(' '), 'notice');
     notice.setAttribute('role', 'status');
     notice.hidden = !notice.textContent;
     root.append(notice, element('p', messages.timestamp));
     const entries = view.file ? parseJournal(view.file.text) : [];
-    const availableTags = tagsFor(entries);
+    const tagCounts = tagCountsFor(entries);
+    const availableTags = tagCounts.map(([tag]) => tag);
     query.tags = query.tags.filter(tag => availableTags.includes(tag));
     const count = element('p');
     count.setAttribute('aria-live', 'polite');
     const list = element('ol');
+    const details = element('details');
+    details.open = filterOpen;
+    filterPanel = details;
+    const summary = element('summary');
+    details.append(summary);
     function results() {
+      summary.textContent = filterSummary(query);
       const filtered = filterEntries(entries, query);
       count.textContent = `${filtered.length} ${filtered.length === 1 ? 'Eintrag' : 'Einträge'}`;
       list.replaceChildren(...filtered.map(entry => {
@@ -166,18 +186,20 @@ export function mountApp(document, navigator, store, fetchImpl) {
         label.append(input, document.createTextNode(title));
         group.append(label);
       }
-      root.append(group);
+      details.append(group);
     }
     choices('Zustand', STATES, 'states');
-    choices('Tags (alle gewählten)', availableTags.map(tag => [tag, `:${tag}`]), 'tags');
+    choices('Tags (alle gewählten)', tagCounts.map(([tag, count]) => [tag, `:${tag} (${count})`]), 'tags');
     const label = element('label', 'Suche');
     const search = element('input');
+    searchField = search;
     search.type = 'search';
     search.value = query.text;
     search.addEventListener('input', () => { query.text = search.value; results(); });
     label.append(search);
-    root.append(label, count, list);
+    root.append(label, details, count, list, clear);
     results();
+    if (restoreFocus) search.focus();
   }
   const app = createApp({
     store, fetchImpl, onChange: render,
