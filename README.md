@@ -88,3 +88,43 @@ Die Module speichern nicht automatisch nach einem Abruf; die aufrufende
 Anwendung entscheidet anhand des Ergebnisses und prüft den Speichererfolg.
 
 Die Tests benötigen weder Netzwerk noch Browser: `node --test`.
+
+## App öffnen
+
+Ohne Build-Schritt lokal starten: `python3 -m http.server 8000 --bind 127.0.0.1`.
+Danach im Browser `localhost:8000` öffnen. Auf GitHub Pages wird die App direkt
+unter dem Projektpfad geöffnet. Service Worker und Offline-Start benötigen
+HTTPS oder localhost.
+
+Beim ersten Öffnen Owner, Repository, Dateipfad, optional Branch und Token
+auf dem Gerät eingeben. Der fine-grained Token gilt nur für das betreffende
+Repository und braucht ausschließlich **Contents: Read**. Zugang und letzte
+Dateikopie bleiben im Browserspeicher; „Zugang löschen“ entfernt beides.
+Zugangsdaten gehören niemals in dieses öffentliche Repository.
+
+Die Liste startet mit offenen Einträgen, neueste Dateizeilen zuerst.
+Zustände lassen sich mehrfach wählen, gewählte Tags müssen alle passen;
+die Suche umfasst Text, Tags und Notizen. Beim Öffnen und bei Rückkehr zur
+sichtbaren App wird aktualisiert. Bei Abruffehlern bleiben die letzte Kopie
+und ihr Zeitstempel sichtbar. Ohne zuvor geladene Kopie ist offline keine
+Journalansicht verfügbar.
+
+Icons neu erzeugen: `node tools/generate-icons.js`.
+
+### Auf dem iPhone prüfen
+
+1. Die über HTTPS bereitgestellte App in Safari öffnen und den Zugang einrichten.
+2. Über „Teilen“ → „Zum Home-Bildschirm“ hinzufügen; vom Symbol starten.
+   Name, Icon und eigenständige Ansicht prüfen.
+3. Nach erfolgreichem Laden die App schließen, Flugmodus einschalten und vom
+   Home-Bildschirm öffnen: Oberfläche, gespeicherte Einträge, Fehlerhinweis und
+   „Stand:“ müssen sichtbar bleiben.
+4. Wieder online gehen und zur App zurückkehren: Die Datei soll aktualisiert
+   werden; unveränderte Dateien behalten den Zeitstempel der letzten Kopie.
+5. Zustände, mehrere Tags und Suche kombinieren; Reihenfolge, Anzahl, Notizen
+   und besondere Marker prüfen.
+6. Bei 375 Pixel Breite, im hellen und dunklen Modus sowie mit langen Zeilen
+   prüfen: kein horizontales Scrollen, lesbarer Text, freie Safe Areas.
+   Zoomen und Textauswahl ausprobieren.
+7. „Zugang löschen“ wählen: Setup erscheint; nach erneutem Öffnen dürfen
+   weder Zugang noch alte Journaldatei geladen werden.
