@@ -12,7 +12,7 @@ export function parseJournal(text) {
     const note = noteStart < 0 ? '' : remainder.slice(noteStart + 3);
     const body = noteStart < 0 ? remainder : remainder.slice(0, noteStart);
     const tags = [];
-    const content = body.replace(/(^| ):([^\s:]+)/gu, (match, space, tag) => {
+    const content = body.replace(/(^|\s):([\p{L}][\p{L}\p{N}_-]*)/gu, (match, space, tag) => {
       tags.push(tag);
       return space;
     }).trim();

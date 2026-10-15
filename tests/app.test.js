@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp, screenFor, tagsFor, messageForView } from '../app.js';
+import { createApp, screenFor, tagsFor, tagCountsFor, filterSummary, messageForView } from '../app.js';
 import { parseJournal } from '../parser.js';
 import { readFileSync } from 'node:fs';
 
@@ -44,6 +44,18 @@ test('tags come from the actual journal, are unique and sorted without changing 
   assert.deepEqual(tags, [...tags].sort((a, b) => a.localeCompare(b, 'de')));
   assert.deepEqual(entries, before);
   assert.deepEqual(tagsFor([]), []);
+});
+
+test('tag frequencies count entries and sort descending with alphabetical ties', () => {
+  const entries = parseJournal('@todo :kino :kino :abend\n@done :kino\n@todo :zwei :abend :alpha');
+  assert.deepEqual(tagCountsFor(entries), [['abend', 2], ['kino', 2], ['alpha', 1], ['zwei', 1]]);
+  assert.deepEqual(tagCountsFor([]), []);
+});
+
+test('filter summary counts selected states and tags, excluding search text', () => {
+  assert.equal(filterSummary({ states: [], tags: [], text: 'Film' }), 'Filter · 0 aktiv');
+  assert.equal(filterSummary({ states: ['open'], tags: [], text: '' }), 'Filter · 1 aktiv');
+  assert.equal(filterSummary({ states: ['open'], tags: ['kino'], text: '' }), 'Filter · 2 aktiv');
 });
 
 test('start shows the copy synchronously and passes its ETag; unchanged keeps it', async () => {
@@ -150,6 +162,8 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
     visibilityState: 'hidden',
   };
   let stored = null, fetches = 0, persists = 0;
+  let confirmed = false;
+  const confirmations = [];
   const store = {
     loadConfig: () => stored, loadFile: () => null,
     saveConfig: value => { stored = value; return true; },
@@ -161,7 +175,7 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
       status: 200, headers: new Map(),
       text: async () => '@todo :lesen Erstes # Notiz\n@done :lesen Fertig\n@todo-next :lesen Zweites',
     };
-  });
+  }, message => { confirmations.push(message); return confirmed; });
   assert.equal(root.all('form').length, 1);
   const form = root.all('form')[0];
   for (const input of form.elements) input.value = config[input.name] ?? '';
@@ -173,6 +187,12 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   assert.equal(root.all('li')[0].all('p')[0].textContent, 'Zweites');
   assert.ok(root.all('p').some(node => node.textContent === '@todo-next'));
   assert.ok(root.all('p').some(node => node.textContent === 'Notiz' && node.className === 'note'));
+  const details = root.all('details')[0];
+  assert.equal(details.open, false);
+  assert.equal(root.all('summary')[0].textContent, 'Filter · 1 aktiv');
+  assert.deepEqual(root.children.map(node => node.tag), ['h1', 'p', 'p', 'label', 'details', 'p', 'ol', 'button']);
+  assert.equal(root.all('fieldset')[1].all('#text')[0].textContent, ':lesen (3)');
+  details.open = true;
   const states = root.all('fieldset')[0].all('input');
   assert.equal(states[0].checked, true);
   states[1].checked = true;
@@ -186,12 +206,28 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   search.listeners.input();
   assert.equal(root.all('li').length, 1);
   assert.ok(root.all('p').some(node => node.textContent === '1 Eintrag'));
+  assert.equal(root.all('summary')[0].textContent, 'Filter · 3 aktiv');
+  document.activeElement = search;
+  document.createElement = tag => {
+    const node = new Node(tag);
+    node.focus = () => { document.activeElement = node; };
+    return node;
+  };
   events.visibilitychange();
   assert.equal(fetches, 1);
   document.visibilityState = 'visible';
   events.visibilitychange();
   await app.refresh();
   assert.equal(fetches, 2);
+  const refreshedSearch = root.all('input').find(node => node.type === 'search');
+  assert.equal(refreshedSearch.value, 'NOTIZ');
+  assert.equal(document.activeElement, refreshedSearch);
+  assert.equal(root.all('details')[0].open, true);
+  assert.equal(root.all('li').length, 1);
+  root.all('button').find(node => node.textContent === 'Zugang löschen').listeners.click();
+  assert.ok(stored);
+  assert.match(confirmations[0], /gespeicherte Kopie/);
+  confirmed = true;
   root.all('button').find(node => node.textContent === 'Zugang löschen').listeners.click();
   assert.equal(stored, null);
   assert.equal(root.all('form').length, 1);

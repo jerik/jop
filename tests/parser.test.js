@@ -36,3 +36,27 @@ test('keeps unknown markers, embedded colons and physical line numbers', () => {
   assert.equal(entries[4].line, 5);
   assert.deepEqual(parseJournal(''), []);
 });
+
+// Regression examples reported in issue #8.
+test('tags start with a Unicode letter and leave punctuation and smileys in text', () => {
+  for (const [body, tags, text] of [
+    [':kino,', ['kino'], ','],
+    [':wciou!!', ['wciou'], '!!'],
+    [':kino.wcy', ['kino'], '.wcy'],
+    [':)', [], ':)'], [':(', [], ':('], [':22164054', [], ':22164054'],
+    [':4855.', [], ':4855.'],
+    [':Äpfel_2-茶', ['Äpfel_2-茶'], ''],
+    ['Text\t:edu;', ['edu'], 'Text\t;'],
+    ['Text:kino', [], 'Text:kino'],
+  ]) {
+    const entry = parseJournal(`@todo ${body}`)[0];
+    assert.deepEqual(entry.tags, tags, body);
+    assert.equal(entry.text, text, body);
+  }
+});
+
+test('recorded journal has only tags made of letters, digits, underscores and hyphens', () => {
+  const tags = parseJournal(journal).flatMap(entry => entry.tags);
+  assert.ok(tags.length > 0);
+  assert.ok(tags.every(tag => /^[\p{L}][\p{L}\p{N}_-]*$/u.test(tag)));
+});
