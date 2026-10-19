@@ -1,3 +1,13 @@
+export const QUICK_GROUPS = [
+  { id: 'todo', label: 'todo', marker: '@todo' },
+  { id: 'next', label: 'next', marker: '@todo-next' },
+  { id: 'wait', label: 'wait', marker: '@todo-wait' },
+  { id: 'periodic', label: 'periodic', marker: '@todo-periodic' },
+  { id: 'new', label: 'new', marker: '@todo-new' },
+  { id: 'other', label: 'andere' },
+];
+export const groupFor = entry => QUICK_GROUPS.find(group => group.marker === entry.marker)?.id ?? 'other';
+
 const asArray = value => value == null ? [] : Array.isArray(value) ? value : [value];
 
 /**
@@ -10,8 +20,9 @@ export function filterEntries(entries, query = {}) {
   const markers = asArray(query.markers);
   const tags = asArray(query.tags);
   const search = (query.text ?? '').trim().toLowerCase();
-  if (!states.length && !markers.length && !tags.length && !search) states = ['open'];
+  if (!states.length && !markers.length && !tags.length && !search && !Object.hasOwn(query, 'quick')) states = ['open'];
   return entries.filter(entry =>
+    (!query.quick || groupFor(entry) === query.quick) &&
     (!states.length || states.includes(entry.state)) &&
     (!markers.length || markers.includes(entry.marker)) &&
     tags.every(tag => entry.tags.includes(tag)) &&

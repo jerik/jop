@@ -23,3 +23,36 @@ li p { margin: .25rem 0; }
   button { background: #334155; }
   .tags, .marker { color: #67e8f9; }
 }
+/* Opaque strip behind the status bar, so the list never scrolls visibly under it. */
+body::before { content: ''; position: fixed; z-index: 20; inset: 0 0 auto; height: env(safe-area-inset-top); background: #f8fafc; }
+main { min-width: 0; }
+h1 { margin-bottom: .4rem; }
+.top-bar { position: sticky; top: env(safe-area-inset-top); z-index: 10; padding-top: .5rem; padding-bottom: .6rem; background: #f8fafc; }
+.search-row { display: flex; gap: .35rem; align-items: end; }
+.search-label { flex: 1; min-width: 0; margin: 0; }
+.search-row button { flex-shrink: 0; padding-inline: .6rem; }
+.quick-filters { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .6rem; }
+.chip { padding: .35rem .5rem; border-left: .3rem solid var(--entry-color, transparent); }
+.chip[aria-pressed=true] { outline: 2px solid currentColor; outline-offset: 1px; font-weight: bold; }
+li { position: relative; border-left: .3rem solid var(--entry-color, transparent); padding-left: .7rem; padding-right: 2.6rem; }
+main > button { margin: .5rem .5rem 0 0; }
+.star { position: absolute; top: .6rem; right: 0; padding: .3rem .5rem; border: 0; background: none; font-size: 1.25rem; line-height: 1; color: #a16207; }
+.group-todo { --entry-color: #737b86; }
+.group-next { --entry-color: #238047; }
+.group-wait { --entry-color: #ce3545; }
+.group-periodic { --entry-color: #c2408e; }
+.group-new { --entry-color: #ad8000; }
+mark { background: #ffe58a; color: #17202a; }
+a { color: #075faa; }
+input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
+[hidden] { display: none !important; }
+@media (prefers-color-scheme: dark) {
+  body::before, .top-bar { background: #111827; }
+  .star { color: #facc15; }
+  .group-todo { --entry-color: #a0a8b4; }
+  .group-next { --entry-color: #57cc83; }
+  .group-wait { --entry-color: #ff7080; }
+  .group-periodic { --entry-color: #f17ac0; }
+  .group-new { --entry-color: #f7d34d; }
+  a { color: #8dccff; }
+}

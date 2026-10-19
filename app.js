@@ -1,5 +1,6 @@
+import { highlightParts, linkParts, resolveShortlist, versionFor, LOCAL_VERSION } from './display.js';
 import { parseJournal } from './parser.js';
-import { filterEntries } from './filter.js';
+import { QUICK_GROUPS, groupFor, filterEntries } from './filter.js';
 import { createStore } from './store.js';
 import { fetchJournal, messageFor } from './github.js';
 
@@ -18,7 +19,7 @@ export function tagCountsFor(entries) {
   }
   return [...counts].sort(([a, ac], [b, bc]) => bc - ac || a.localeCompare(b, 'de'));
 }
-export const filterSummary = query => `Filter · ${query.states.length + query.tags.length} aktiv`;
+export const filterSummary = query => `Tags · ${query.tags.length} aktiv`;
 export function messageForView(result, file) {
   return {
     message: result ? messageFor(result) : '',
@@ -28,6 +29,7 @@ export function messageForView(result, file) {
 
 /** Keep asynchronous loading independent of the DOM and discard obsolete replies. */
 export function createApp({ store, fetchImpl, persist, onChange = () => {} }) {
+  let shortlist = store.loadShortlist?.() ?? [];
   let config = store.loadConfig();
   let file = config ? store.loadFile() : null;
   let result = null;
@@ -54,6 +56,19 @@ export function createApp({ store, fetchImpl, persist, onChange = () => {} }) {
   }
   return {
     snapshot,
+    readShortlist: () => [...shortlist],
+    toggleShortlist(raw) {
+      shortlist = shortlist.includes(raw) ? shortlist.filter(line => line !== raw) : [...shortlist, raw];
+      return store.saveShortlist?.(shortlist) ?? true;
+    },
+    removeShortlist(raw) {
+      shortlist = shortlist.filter(line => line !== raw);
+      return store.saveShortlist?.(shortlist) ?? true;
+    },
+    clearShortlist() {
+      shortlist = [];
+      return store.saveShortlist?.(shortlist) ?? true;
+    },
     start() { emit(); return refresh(); },
     refresh,
     setup(next) {
@@ -77,6 +92,7 @@ export function createApp({ store, fetchImpl, persist, onChange = () => {} }) {
     },
     clear() {
       const cleared = store.clearConfig();
+      shortlist = [];
       generation++;
       pending = null;
       config = null;
@@ -90,7 +106,9 @@ export function createApp({ store, fetchImpl, persist, onChange = () => {} }) {
 
 export function mountApp(document, navigator, store, fetchImpl, confirmImpl = message => document.defaultView.confirm(message)) {
   const root = document.getElementById('app');
-  let query = { states: ['open'], tags: [], text: '' };
+  let query = { quick: 'todo', tags: [], text: '' };
+  let currentView = 'list', panelOpen = false, version = LOCAL_VERSION;
+  let cachedText, cachedEntries = [];
   function element(tag, text, className) {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -100,7 +118,8 @@ export function mountApp(document, navigator, store, fetchImpl, confirmImpl = me
   let searchField, filterPanel;
   function render(view) {
     const restoreFocus = searchField && document.activeElement === searchField;
-    const filterOpen = filterPanel?.open ?? false;
+    if (currentView === 'list' && filterPanel) panelOpen = filterPanel.open;
+    const selection = restoreFocus ? [searchField.selectionStart, searchField.selectionEnd] : null;
     root.replaceChildren(element('h1', 'jop'));
     if (view.screen === 'setup') {
       root.append(element('p', 'Journal einrichten'));
@@ -129,78 +148,173 @@ export function mountApp(document, navigator, store, fetchImpl, confirmImpl = me
         const config = Object.fromEntries([...form.elements]
           .filter(input => input.name).map(input => [input.name, input.value.trim()]));
         if (['owner', 'repo', 'path', 'token'].some(name => !config[name])) return;
-        query = { states: ['open'], tags: [], text: '' };
+        query = { quick: 'todo', tags: [], text: '' };
+        currentView = 'list';
+        panelOpen = false;
         if (app.setup(config)) form.reset();
       });
       root.append(form);
       if (view.warning) root.append(element('p', view.warning, 'notice'));
       return;
     }
-    const clear = element('button', 'Zugang löschen');
-    clear.type = 'button';
-    clear.addEventListener('click', () => {
-      if (confirmImpl('Zugang und gespeicherte Kopie auf diesem Gerät löschen?')) app.clear();
-    });
     const messages = messageForView(view.result, view.file);
-    const notice = element('p', [messages.message, view.warning].filter(Boolean).join(' '), 'notice');
-    notice.setAttribute('role', 'status');
-    notice.hidden = !notice.textContent;
-    root.append(notice, element('p', messages.timestamp));
-    const entries = view.file ? parseJournal(view.file.text) : [];
-    const tagCounts = tagCountsFor(entries);
-    const availableTags = tagCounts.map(([tag]) => tag);
-    query.tags = query.tags.filter(tag => availableTags.includes(tag));
-    const count = element('p');
-    count.setAttribute('aria-live', 'polite');
-    const list = element('ol');
-    const details = element('details');
-    details.open = filterOpen;
-    filterPanel = details;
-    const summary = element('summary');
-    details.append(summary);
-    function results() {
-      summary.textContent = filterSummary(query);
-      const filtered = filterEntries(entries, query);
-      count.textContent = `${filtered.length} ${filtered.length === 1 ? 'Eintrag' : 'Einträge'}`;
-      list.replaceChildren(...filtered.map(entry => {
-        const item = element('li');
-        item.append(element('p', entry.text));
-        if (entry.marker !== '@todo') item.append(element('p', entry.marker, 'marker'));
-        if (entry.tags.length) item.append(element('p', entry.tags.map(tag => `:${tag}`).join(' '), 'tags'));
-        if (entry.note) item.append(element('p', entry.note, 'note'));
-        return item;
-      }));
+    if (view.file?.text !== cachedText) {
+      cachedText = view.file?.text;
+      cachedEntries = parseJournal(cachedText ?? '');
     }
-    function choices(title, options, field) {
-      const group = element('fieldset');
-      group.append(element('legend', title));
-      for (const [value, title] of options) {
-        const label = element('label');
-        const input = element('input');
-        input.type = 'checkbox';
-        input.checked = query[field].includes(value);
-        input.addEventListener('change', () => {
-          query[field] = input.checked ? [...query[field], value] : query[field].filter(item => item !== value);
-          results();
-        });
-        label.append(input, document.createTextNode(title));
-        group.append(label);
+    const entries = cachedEntries;
+    function button(text, action, name) {
+      const node = element('button', text);
+      node.type = 'button';
+      if (name) node.setAttribute('aria-label', name);
+      node.addEventListener('click', action);
+      return node;
+    }
+    function navigate(next) {
+      if (currentView === 'list' && filterPanel) panelOpen = filterPanel.open;
+      currentView = next;
+      filterPanel = null;
+      render(app.snapshot());
+    }
+    const back = () => navigate('list');
+    function richText(tag, text, className, links = true) {
+      const node = element(tag, undefined, className);
+      for (const part of links ? linkParts(text) : [{ text }]) {
+        const parent = part.href ? element('a') : node;
+        if (part.href) {
+          parent.href = part.href;
+          parent.target = '_blank';
+          parent.rel = 'noopener noreferrer';
+          node.append(parent);
+        }
+        for (const piece of highlightParts(part.text, query.text)) {
+          parent.append(piece.mark ? element('mark', piece.text) : document.createTextNode(piece.text));
+        }
       }
-      details.append(group);
+      return node;
     }
-    choices('Zustand', STATES, 'states');
-    choices('Tags (alle gewählten)', tagCounts.map(([tag, count]) => [tag, `:${tag} (${count})`]), 'tags');
-    const label = element('label', 'Suche');
+    function entryItem(entry) {
+      const item = element('li', undefined, `group-${groupFor(entry)}`);
+      item.append(richText('p', entry.text));
+      if (entry.marker !== '@todo') item.append(element('p', entry.marker, 'marker'));
+      if (entry.tags.length) item.append(richText('p', entry.tags.map(tag => `:${tag}`).join(' '), 'tags', false));
+      if (entry.note) item.append(richText('p', entry.note, 'note'));
+      return item;
+    }
+    if (currentView === 'info') {
+      root.append(element('h2', 'Info'), element('p', version), element('p', messages.timestamp));
+      root.append(button('Zugang löschen', () => {
+        if (confirmImpl('Zugang und gespeicherte Kopie sowie Shortlist auf diesem Gerät löschen?')) app.clear();
+      }), button('Zurück', back));
+      return;
+    }
+    if (currentView === 'shortlist') {
+      const resolved = resolveShortlist(app.readShortlist(), entries);
+      root.append(element('h2', `Shortlist (${resolved.length})`));
+      const list = element('ol');
+      for (const { raw, entry, missing } of resolved) {
+        const item = entryItem(entry);
+        if (missing) item.append(element('p', 'nicht mehr in der Datei', 'note'));
+        item.append(button('Entfernen', () => { app.removeShortlist(raw); render(app.snapshot()); }));
+        list.append(item);
+      }
+      root.append(list, button('Alle entfernen', () => {
+        if (confirmImpl('Alle Einträge aus der Shortlist entfernen?')) {
+          app.clearShortlist(); render(app.snapshot());
+        }
+      }), button('Zurück', back));
+      return;
+    }
+    const bar = element('div', undefined, 'top-bar');
+    const row = element('div', undefined, 'search-row');
+    const label = element('label', 'Suche', 'search-label');
     const search = element('input');
     searchField = search;
     search.type = 'search';
     search.value = query.text;
-    search.addEventListener('input', () => { query.text = search.value; results(); });
+    const clearSearch = button('×', () => {
+      query.text = ''; search.value = ''; results(); search.focus();
+    }, 'Suche löschen');
+    const shortlistButton = button('', () => navigate('shortlist'));
+    const updateCount = () => { shortlistButton.textContent = `★ ${app.readShortlist().length}`; };
+    updateCount();
     label.append(search);
-    root.append(label, details, count, list, clear);
+    row.append(label, clearSearch, shortlistButton, button('ⓘ', () => navigate('info'), 'Info'));
+    const chips = element('div', undefined, 'quick-filters');
+    const groupCounts = new Map(QUICK_GROUPS.map(group => [group.id, 0]));
+    for (const entry of entries) groupCounts.set(groupFor(entry), groupCounts.get(groupFor(entry)) + 1);
+    const chipButtons = [];
+    for (const group of QUICK_GROUPS) {
+      const chip = button(`${group.label} (${groupCounts.get(group.id)})`, () => {
+        query.quick = query.quick === group.id ? '' : group.id; results();
+      });
+      chip.className = `chip group-${group.id}`;
+      chipButtons.push([group.id, chip]);
+      chips.append(chip);
+    }
+    bar.append(row, chips);
+    const notice = element('p', [messages.message, view.warning].filter(Boolean).join(' '), 'notice');
+    notice.setAttribute('role', 'status');
+    notice.hidden = !notice.textContent;
+    const count = element('p');
+    count.setAttribute('aria-live', 'polite');
+    const list = element('ol');
+    const details = element('details');
+    details.open = panelOpen;
+    filterPanel = details;
+    const summary = element('summary');
+    details.append(summary);
+    const tagCounts = tagCountsFor(entries);
+    const group = element('fieldset');
+    group.append(element('legend', 'Tags (alle gewählten)'));
+    for (const [tag, count] of tagCounts) {
+      const label = element('label');
+      const input = element('input');
+      input.type = 'checkbox';
+      input.checked = query.tags.includes(tag);
+      input.addEventListener('change', () => {
+        query.tags = input.checked ? [...query.tags, tag] : query.tags.filter(value => value !== tag);
+        results();
+      });
+      label.append(input, document.createTextNode(`:${tag} (${count})`));
+      group.append(label);
+    }
+    details.append(group);
+    function results() {
+      clearSearch.hidden = !query.text;
+      summary.textContent = filterSummary(query);
+      for (const [id, chip] of chipButtons) chip.setAttribute('aria-pressed', String(query.quick === id));
+      const filtered = filterEntries(entries, query);
+      const selected = new Set(app.readShortlist());
+      count.textContent = `${filtered.length} ${filtered.length === 1 ? 'Eintrag' : 'Einträge'}`;
+      list.replaceChildren(...filtered.map(entry => {
+        const item = entryItem(entry);
+        const updateStar = () => {
+          const active = app.readShortlist().includes(entry.raw);
+          star.textContent = active ? '★' : '☆';
+          star.setAttribute('aria-label', active ? 'Von Shortlist entfernen' : 'Zur Shortlist');
+          star.setAttribute('aria-pressed', String(active));
+        };
+        const star = button(selected.has(entry.raw) ? '★' : '☆', () => {
+          app.toggleShortlist(entry.raw); updateStar(); updateCount();
+        }, selected.has(entry.raw) ? 'Von Shortlist entfernen' : 'Zur Shortlist');
+        star.className = 'star';
+        star.setAttribute('aria-pressed', String(selected.has(entry.raw)));
+        item.append(star);
+        return item;
+      }));
+    }
+    search.addEventListener('input', () => { query.text = search.value; results(); });
+    root.append(bar, details, notice, element('p', messages.timestamp), count, list);
     results();
-    if (restoreFocus) search.focus();
+    if (restoreFocus) {
+      search.focus();
+      if (selection && search.setSelectionRange) {
+        try { search.setSelectionRange(...selection); } catch { /* Search inputs may not support selection. */ }
+      }
+    }
   }
+
   const app = createApp({
     store, fetchImpl, onChange: render,
     persist: navigator.storage?.persist ? () => navigator.storage.persist() : undefined,
@@ -209,6 +323,10 @@ export function mountApp(document, navigator, store, fetchImpl, confirmImpl = me
     if (document.visibilityState === 'visible') void app.refresh();
   });
   void app.start();
+  Promise.resolve().then(() => fetchImpl('./version.json')).then(response => {
+    if (response.ok === false) throw new Error('Version unavailable');
+    return response.text();
+  }).then(text => { version = versionFor(text); if (currentView === 'info') render(app.snapshot()); }).catch(() => {});
   return app;
 }
 

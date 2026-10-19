@@ -32,7 +32,7 @@ test('HTML allows zoom, applies the specified CSP and uses only external scripts
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">/);
   const csp = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   assert.deepEqual(csp.split(';').map(directive => directive.trim()), [
-    "default-src 'self'", 'connect-src https://api.github.com', "img-src 'self'", "style-src 'self'",
+    "default-src 'self'", "connect-src 'self' https://api.github.com", "img-src 'self'", "style-src 'self'",
   ]);
   assert.match(html, /rel="manifest" href="\.\/manifest.webmanifest"/);
   assert.match(html, /rel="apple-touch-icon" href="\.\/icon-180.png"/);
@@ -62,11 +62,12 @@ test('worker installs the complete shell and removes only older app caches', asy
   let pending;
   handlers.install({ waitUntil: promise => { pending = promise; } });
   await pending;
-  for (const name of ['app.js', 'app.css', 'github.js', 'store.js', 'parser.js', 'filter.js', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
+  for (const name of ['display.js', 'version.json', 'app.js', 'app.css', 'github.js', 'store.js', 'parser.js', 'filter.js', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
     assert.ok(assets.includes(`./${name}`));
     assert.ok(readFileSync(new URL(`../${name}`, import.meta.url)).length);
   }
   assert.ok(assets.includes('./'));
+  assert.equal(current, 'jop.shell.v3');
   handlers.activate({ waitUntil: promise => { pending = promise; } });
   await pending;
   assert.deepEqual(deleted, ['jop.shell.old']);

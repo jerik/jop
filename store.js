@@ -1,4 +1,6 @@
 const configKey = 'jop.config';
+const shortlistKey = 'jop.shortlist';
+const validShortlist = value => Array.isArray(value) && value.every(line => typeof line === 'string' && !/[\r\n]/.test(line));
 const fileKey = 'jop.file';
 const nonempty = value => typeof value === 'string' && value.trim().length > 0;
 
@@ -36,11 +38,13 @@ export function createStore(storage) {
   }
 
   return {
+    loadShortlist: () => [...new Set(load(shortlistKey, validShortlist) ?? [])],
+    saveShortlist: list => save(shortlistKey, validShortlist(list) ? [...new Set(list)] : []),
     loadConfig: () => load(configKey, validConfig),
     saveConfig: config => save(configKey, config),
     clearConfig() {
       let success = true;
-      for (const key of [configKey, fileKey]) {
+      for (const key of [configKey, fileKey, shortlistKey]) {
         try {
           storage.removeItem(key);
         } catch {

@@ -36,9 +36,9 @@ die Arbeit daran: [CONVENTIONS.md](CONVENTIONS.md).
    nicht. Im Formular „Journal einrichten“ eintragen:
    Owner, Repository, Dateipfad (wie in Schritt 1), Branch nur, wenn die Datei
    nicht im Standard-Branch liegt, und den Token. **„Zugang speichern“**
-   tippen. Danach lädt jop die Datei und zeigt die offenen Einträge.
-5. **„Zugang löschen“** (unten in der Liste) entfernt nach einer Rückfrage den
-   gespeicherten Zugang und die letzte Kopie der Datei von diesem Gerät; danach
+   tippen. Danach lädt jop die Datei und zeigt die Einträge mit genau `@todo`.
+5. **„Zugang löschen“** (unter `ⓘ` auf der Infoseite) entfernt nach einer Rückfrage den
+   gespeicherten Zugang, die Shortlist und die letzte Kopie der Datei von diesem Gerät; danach
    erscheint wieder das Einrichtungsformular. Der Token bei GitHub bleibt davon
    unberührt – wer ihn nicht mehr braucht, widerruft ihn dort. Einen neuen oder
    geänderten Zugang trägt man so ein: „Zugang löschen“, dann neu einrichten.
@@ -53,14 +53,14 @@ passieren soll.
    öffnet ohne Safari-Adressleiste und ohne Safari-Leiste unten.
 2. **Safe Areas.** Die Liste im Hoch- und im Querformat ansehen, bis ganz nach
    unten scrollen. – Nichts liegt unter der Statusleiste, der Dynamic Island
-   oder dem Home-Balken; „Zugang löschen“ ist ganz unten erreichbar. Kein
+   oder dem Home-Balken; Suche und Schnellfilter bleiben beim Scrollen oben sichtbar. Kein
    seitliches Scrollen, auch nicht bei langen Einträgen.
 3. **Zoom.** In das Suchfeld und in die Felder des Einrichtungsformulars
    tippen; danach mit zwei Fingern zoomen. – Beim Tippen in ein Feld zoomt die
    Seite nicht von selbst. Zwei-Finger-Zoom funktioniert.
 4. **Erster Abruf mit Umlauten.** Nach dem Einrichten einen Eintrag mit ä, ö,
    ü oder ß suchen (z. B. über die Suche). – Umlaute und Sonderzeichen sehen
-   aus wie in der Datei; unter dem Hinweisfeld steht „Stand:“ mit Datum und
+   aus wie in der Datei; in der Liste und auf der Infoseite steht „Stand:“ mit Datum und
    Uhrzeit des Abrufs.
 5. **Unveränderte Datei beim erneuten Öffnen.** Die Uhrzeit bei „Stand:“
    merken, jop ganz schließen (im App-Umschalter nach oben wischen), eine
@@ -88,21 +88,42 @@ passieren soll.
 9. **Aktualisierung nach einer neuen Version.** Nachdem eine neue Version von
    jop veröffentlicht wurde: jop online öffnen, kurz warten, jop ganz
    schließen (im App-Umschalter nach oben wischen) und wieder öffnen. – Jetzt
-   läuft die neue Version (erkennbar an der Änderung, die die neue Version
-   beschreibt). Zugang und letzte Kopie bleiben erhalten, eine neue
+   läuft die neue Version: unter `ⓘ` die Commit-Kennung und Buildzeit mit der
+   vorherigen Version vergleichen. Offline erscheint dieselbe laufende Version. Zugang und letzte Kopie bleiben erhalten, eine neue
    Einrichtung ist nicht nötig. Zeigt sich die neue Version noch nicht, den
    Vorgang einmal wiederholen.
-10. **Zugang löschen.** „Zugang löschen“ tippen und bestätigen, jop ganz
+10. **Zugang löschen.** Unter `ⓘ` „Zugang löschen“ tippen und bestätigen, jop ganz
     schließen und wieder öffnen. – Das Einrichtungsformular erscheint; weder
-    Zugang noch alte Einträge sind noch zu sehen.
+    Zugang noch alte Einträge oder die Shortlist sind noch zu sehen.
+
+11. **Schnellfilter und Farben.** `todo`, `next`, `wait`, `periodic`, `new`
+    und `andere` antippen. – Genau eine Gruppe ist aktiv; erneutes Tippen zeigt
+    alle. Zähler beziehen sich auf die ganze Datei. Balken und Chips haben
+    dieselbe Farbe (grau, grün, rot, rosa, gelb; andere ohne Farbe). Mit Tags
+    und Suche zusammen prüfen; das Tagpanel zeigt „Tags · n aktiv“.
+12. **Suche und Links.** In Text, Tags und Notiz suchen, auch mit Umlauten und
+    ß. – Alle Treffer sind markiert, auch innerhalb von Links. `×` leert die
+    Suche und behält den Fokus. Einen Weblink antippen: Er öffnet im Browser;
+    Satzzeichen am Ende gehören nicht zum Link.
+13. **Shortlist.** Sterne bei mehreren Einträgen antippen. – Liste und
+    Scrollposition bleiben stehen, `★ n` zählt mit. Shortlist öffnen: Reihenfolge
+    entspricht dem Hinzufügen. Einzelnes und nach Rückfrage alles entfernen.
+    Einen gemerkten Eintrag in der Datei auf `@done` ändern: Die Shortlist zeigt
+    den aktuellen Zustand. Aus der Datei entfernte Einträge bleiben mit Hinweis.
+    App neu öffnen und Datei aktualisieren: Shortlist bleibt erhalten. Nach
+    „Zugang löschen“ ist sie leer.
+14. **Ansichten beim Abruf.** Suche fokussieren, Tags wählen und Tagpanel öffnen;
+    zur App zurückkehren. – Suche, Fokus, Gruppe, Tags und Panel bleiben erhalten.
+    Dasselbe auf Shortlist und Infoseite prüfen: Die jeweilige Ansicht bleibt.
+    Helles und dunkles Erscheinungsbild sowie Hoch- und Querformat prüfen.
 
 ## Was öffentlich ist und was nicht
 
 Öffentlich sind der Code von jop und der Aufbau der Journaldatei (die Testdatei
 `journal.anon.txt` zeigt ihn mit anonymisiertem Inhalt). Owner, Repository,
 Pfad, Branch und Token stehen nirgends in diesem Repository; sie werden nur auf
-dem iPhone eingetragen und bleiben dort im Speicher der installierten App. jop
-verbindet sich ausschließlich mit `api.github.com` und sendet den Token nur
+dem iPhone eingetragen und bleiben dort im Speicher der installierten App. jop lädt die App-Dateien einschließlich `version.json` von der eigenen Herkunft und
+verbindet sich für das Journal ausschließlich mit `api.github.com` und sendet den Token nur
 dorthin.
 
 jop teilt sich die Herkunft `jerik.github.io` und damit grundsätzlich den
@@ -150,7 +171,10 @@ Die Tests in `tests/parser.test.js` sind die Referenz für das Format.
 höchste Zeilennummer zuerst. `states` und `markers` verknüpfen ihre Werte mit
 ODER, alle `tags` müssen vorhanden sein, `text` sucht ohne Groß-/Kleinschreibung
 in Text, Tags und Notiz; die Kriterien untereinander gelten mit UND. Ohne
-wirksame Kriterien gilt `states: ['open']`.
+wirksame Kriterien gilt `states: ['open']`, sofern `quick` nicht übergeben wird.
+`QUICK_GROUPS` und `groupFor(entry)` definieren die sechs Schnellgruppen.
+`quick` wählt genau eine Gruppe; `quick: ''` zeigt alle Zustände. Die App
+startet mit `quick: 'todo'`.
 
 ### `store.js` und `github.js`
 
@@ -170,6 +194,9 @@ const message = messageFor(result);
 `createStore(storage)` speichert unter `jop.config` (Pflichtfelder `owner`,
 `repo`, `path`, `token`, optional `ref`) und `jop.file` (`text`, `etag`,
 `fetchedAt`). Laden liefert bei fehlenden oder ungültigen Daten `null`,
+`loadShortlist()` / `saveShortlist(list)` verwalten unter `jop.shortlist` eine
+deduplizierte Liste roher Journalzeilen; ungültige Daten ergeben `[]`. Ein
+Dateiabruf erhält sie, `clearConfig()` entfernt alle drei Schlüssel.
 Speichern und `clearConfig()` liefern `false`, wenn der Speicher versagt.
 
 `fetchJournal(config, cached, fetchImpl)` sendet genau einen GET an die
@@ -180,9 +207,13 @@ entscheidet die aufrufende Anwendung.
 
 ### App-Dateien
 
-- `index.html`, `app.css`, `app.js`: Einrichtungsformular und Liste mit
-  Filtern. `createApp` in `app.js` enthält die Ablauflogik ohne DOM und wird in
-  `tests/app.test.js` geprüft; `mountApp` baut die Oberfläche. Beim Öffnen und
+- `display.js`: reine Funktionen für Hervorhebung, Weblinks, Versionsanzeige
+  und Shortlist-Abgleich (exakte Zeile, dann ohne führenden Marker).
+- `version.json`: Jekyll setzt Commit und Buildzeit ein; lokal erscheint
+  „Version: unbekannt (lokal)“. Der Service Worker hält die laufende Version offline vor.
+- `index.html`, `app.css`, `app.js`: Einrichtung, fixe Suchleiste mit
+  Schnellfiltern, Tagpanel, Liste, Shortlist und Infoseite. `createApp` in `app.js` enthält die Ablauflogik ohne DOM und wird in
+  `tests/app.test.js` einschließlich persistierter Shortlist geprüft; `mountApp` baut die Oberfläche. Beim Öffnen und
   bei Rückkehr zur sichtbaren App wird neu abgerufen.
 - `manifest.webmanifest` und die Icons: Installation auf dem Home-Bildschirm.
   Icons neu erzeugen: `node tools/generate-icons.js`.

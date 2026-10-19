@@ -41,3 +41,14 @@ test('does not mutate the input or entries and handles empty criteria', () => {
   assert.deepEqual(filterEntries([]), []);
   assert.deepEqual(frozen.map(e => e.line), [1, 2, 3, 4]);
 });
+
+test('quick groups include only exact markers and combine with all other criteria', async () => {
+  const { QUICK_GROUPS, groupFor } = await import('../filter.js');
+  const items = parseJournal('@todo A\n@todo-next :x B\n@todo-wait C\n@todo-periodic D\n@todo-new E\n@todo-future F\n@done G\nNo marker\n@feel H\n@unknown I');
+  assert.deepEqual(items.map(groupFor), ['todo', 'next', 'wait', 'periodic', 'new', 'other', 'other', 'other', 'other', 'other']);
+  assert.equal(QUICK_GROUPS.length, 6);
+  assert.equal(filterEntries(items, { quick: '' }).length, 10);
+  assert.equal(filterEntries(items, { quick: 'other' }).length, 5);
+  assert.equal(filterEntries(items, { quick: 'next', tags: ['x'], text: 'b' }).length, 1);
+  assert.equal(filterEntries(items, { quick: 'todo', tags: ['x'] }).length, 0);
+});

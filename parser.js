@@ -3,7 +3,7 @@ export function parseJournal(text) {
   const lines = text.split(/\r?\n/);
   if (lines.at(-1) === '') lines.pop();
   return lines.map((raw, index) => {
-    const marker = raw.match(/^\S+/)?.[0] ?? '';
+    const marker = raw.match(/^@\S+/)?.[0] ?? '';
     const state = marker === '@todo' || marker.startsWith('@todo-')
       ? 'open'
       : ({ '@done': 'done', '@canceled': 'canceled', '@past': 'past' }[marker] ?? 'other');

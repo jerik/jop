@@ -69,5 +69,21 @@ test('unavailable storage does not throw and deletion attempts both keys', () =>
   assert.equal(store.saveConfig(config), false);
   assert.equal(store.saveFile(file), false);
   assert.equal(store.clearConfig(), false);
-  assert.deepEqual(removed, ['jop.config', 'jop.file']);
+  assert.deepEqual(removed, ['jop.config', 'jop.file', 'jop.shortlist']);
+});
+
+test('shortlist validates, deduplicates and survives a new journal copy until access deletion', () => {
+  const storage = memory(), store = createStore(storage);
+  assert.deepEqual(store.loadShortlist(), []);
+  assert.equal(store.saveShortlist(['@todo A', '@todo A', '@done B']), true);
+  assert.deepEqual(JSON.parse(storage.getItem('jop.shortlist')), ['@todo A', '@done B']);
+  store.saveFile(file);
+  assert.deepEqual(store.loadShortlist(), ['@todo A', '@done B']);
+  for (const raw of ['{', 'null', '{}', '[42]', '["a\\nb"]']) {
+    storage.setItem('jop.shortlist', raw);
+    assert.deepEqual(store.loadShortlist(), []);
+  }
+  store.saveShortlist(['A']);
+  store.clearConfig();
+  assert.equal(storage.getItem('jop.shortlist'), null);
 });

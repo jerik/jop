@@ -52,10 +52,10 @@ test('tag frequencies count entries and sort descending with alphabetical ties',
   assert.deepEqual(tagCountsFor([]), []);
 });
 
-test('filter summary counts selected states and tags, excluding search text', () => {
-  assert.equal(filterSummary({ states: [], tags: [], text: 'Film' }), 'Filter · 0 aktiv');
-  assert.equal(filterSummary({ states: ['open'], tags: [], text: '' }), 'Filter · 1 aktiv');
-  assert.equal(filterSummary({ states: ['open'], tags: ['kino'], text: '' }), 'Filter · 2 aktiv');
+test('filter summary counts selected tags, excluding search text', () => {
+  assert.equal(filterSummary({ states: [], tags: [], text: 'Film' }), 'Tags · 0 aktiv');
+  assert.equal(filterSummary({ states: ['open'], tags: [], text: '' }), 'Tags · 0 aktiv');
+  assert.equal(filterSummary({ states: ['open'], tags: ['kino'], text: '' }), 'Tags · 1 aktiv');
 });
 
 test('start shows the copy synchronously and passes its ETag; unchanged keeps it', async () => {
@@ -183,22 +183,25 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   form.listeners.submit({ preventDefault() {} });
   await app.refresh();
   assert.equal(persists, 1);
-  assert.equal(root.all('li').length, 2);
-  assert.equal(root.all('li')[0].all('p')[0].textContent, 'Zweites');
-  assert.ok(root.all('p').some(node => node.textContent === '@todo-next'));
-  assert.ok(root.all('p').some(node => node.textContent === 'Notiz' && node.className === 'note'));
+  assert.equal(root.all('li').length, 1);
+  assert.equal(root.all('li')[0].all('p')[0].all('#text')[0].textContent, 'Erstes');
+  assert.ok(root.all('p').some(node => node.className === 'note'));
+  const originalItem = root.all('li')[0];
+  const star = originalItem.all('button')[0];
+  star.listeners.click();
+  assert.equal(star.textContent, '★');
+  assert.equal(root.all('li')[0], originalItem);
+  assert.ok(root.all('button').some(node => node.textContent === '★ 1'));
+  star.listeners.click();
+  assert.equal(star.textContent, '☆');
   const details = root.all('details')[0];
   assert.equal(details.open, false);
-  assert.equal(root.all('summary')[0].textContent, 'Filter · 1 aktiv');
-  assert.deepEqual(root.children.map(node => node.tag), ['h1', 'p', 'p', 'label', 'details', 'p', 'ol', 'button']);
-  assert.equal(root.all('fieldset')[1].all('#text')[0].textContent, ':lesen (3)');
+  assert.equal(root.all('summary')[0].textContent, 'Tags · 0 aktiv');
+  assert.equal(root.all('fieldset')[0].all('#text')[0].textContent, ':lesen (3)');
   details.open = true;
-  const states = root.all('fieldset')[0].all('input');
-  assert.equal(states[0].checked, true);
-  states[1].checked = true;
-  states[1].listeners.change();
+  root.all('button').find(node => node.textContent === 'todo (1)').listeners.click();
   assert.equal(root.all('li').length, 3);
-  const tag = root.all('fieldset')[1].all('input')[0];
+  const tag = root.all('fieldset')[0].all('input')[0];
   tag.checked = true;
   tag.listeners.change();
   const search = root.all('input').find(node => node.type === 'search');
@@ -206,7 +209,7 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   search.listeners.input();
   assert.equal(root.all('li').length, 1);
   assert.ok(root.all('p').some(node => node.textContent === '1 Eintrag'));
-  assert.equal(root.all('summary')[0].textContent, 'Filter · 3 aktiv');
+  assert.equal(root.all('summary')[0].textContent, 'Tags · 1 aktiv');
   document.activeElement = search;
   document.createElement = tag => {
     const node = new Node(tag);
@@ -214,21 +217,47 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
     return node;
   };
   events.visibilitychange();
-  assert.equal(fetches, 1);
+  assert.equal(fetches, 2);
   document.visibilityState = 'visible';
   events.visibilitychange();
   await app.refresh();
-  assert.equal(fetches, 2);
+  assert.equal(fetches, 3);
   const refreshedSearch = root.all('input').find(node => node.type === 'search');
   assert.equal(refreshedSearch.value, 'NOTIZ');
   assert.equal(document.activeElement, refreshedSearch);
   assert.equal(root.all('details')[0].open, true);
   assert.equal(root.all('li').length, 1);
+  root.all('button').find(node => node.textContent === 'ⓘ').listeners.click();
   root.all('button').find(node => node.textContent === 'Zugang löschen').listeners.click();
   assert.ok(stored);
+  document.visibilityState = 'visible';
+  events.visibilitychange();
+  await app.refresh();
+  assert.ok(root.all('h2').some(node => node.textContent === 'Info'));
   assert.match(confirmations[0], /gespeicherte Kopie/);
   confirmed = true;
   root.all('button').find(node => node.textContent === 'Zugang löschen').listeners.click();
   assert.equal(stored, null);
   assert.equal(root.all('form').length, 1);
+});
+
+test('createApp owns shortlist order, defensive reads, persistence and access deletion', () => {
+  let saved;
+  const app = createApp({ store: {
+    loadConfig: () => config, loadFile: () => copy, loadShortlist: () => ['A'],
+    saveShortlist: list => { saved = [...list]; return true; }, clearConfig: () => true,
+  } });
+  app.readShortlist().push('ignored');
+  app.toggleShortlist('B');
+  assert.deepEqual(saved, ['A', 'B']);
+  app.toggleShortlist('A');
+  app.toggleShortlist('A');
+  assert.deepEqual(app.readShortlist(), ['B', 'A']);
+  app.removeShortlist('B');
+  assert.deepEqual(saved, ['A']);
+  app.clearShortlist();
+  assert.deepEqual(saved, []);
+  app.toggleShortlist('C');
+  app.clear();
+  assert.deepEqual(app.readShortlist(), []);
 });
