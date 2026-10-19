@@ -55,10 +55,19 @@ node --test          # from the repository root, must be green
   answer, as steps the owner can follow on the device.
 - **End the answer with `Verify: <command>`**, usually `node --test`.
 
+## Every change has an issue and a changelog line
+
+- Work starts from an issue that states the owner's request. Work done
+  without one gets an issue afterwards, with the request verbatim and the
+  commit it landed in.
+- A change the owner notices when using the app adds one line to
+  `CHANGELOG.md` (German), under the date it goes live, ending with the issue
+  number. Say what changes in use, not how it is built.
+
 ## Language
 
 - Code, identifiers, comments, commit messages: English.
-- Text in the user interface and in `README.md`: German.
+- Text in the user interface, `README.md` and `CHANGELOG.md`: German.
 
 ## Background material
 
