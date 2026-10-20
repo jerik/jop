@@ -62,12 +62,12 @@ test('worker installs the complete shell and removes only older app caches', asy
   let pending;
   handlers.install({ waitUntil: promise => { pending = promise; } });
   await pending;
-  for (const name of ['display.js', 'version.json', 'app.js', 'app.css', 'github.js', 'store.js', 'parser.js', 'filter.js', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
+  for (const name of ['display.js', 'edit.js', 'icons.js', 'version.json', 'app.js', 'app.css', 'github.js', 'store.js', 'parser.js', 'filter.js', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
     assert.ok(assets.includes(`./${name}`));
     assert.ok(readFileSync(new URL(`../${name}`, import.meta.url)).length);
   }
   assert.ok(assets.includes('./'));
-  assert.equal(current, 'jop.shell.v3');
+  assert.equal(current, 'jop.shell.v5');
   handlers.activate({ waitUntil: promise => { pending = promise; } });
   await pending;
   assert.deepEqual(deleted, ['jop.shell.old']);

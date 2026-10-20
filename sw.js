@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'jop.shell.v3';
+const CACHE_VERSION = 'jop.shell.v5';
 const SHELL = [
   './', './index.html', './app.js', './app.css', './parser.js', './filter.js',
-  './display.js', './version.json', './store.js', './github.js', './manifest.webmanifest',
+  './display.js', './edit.js', './icons.js', './version.json', './store.js', './github.js', './manifest.webmanifest',
   './icon-180.png', './icon-192.png', './icon-512.png',
 ];
 

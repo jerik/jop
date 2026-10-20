@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { highlightParts, linkParts, versionFor, LOCAL_VERSION, resolveShortlist } from '../display.js';
+import { highlightParts, linkParts, versionFor, LOCAL_VERSION, resolveShortlist, commentsFor } from '../display.js';
 import { parseJournal } from '../parser.js';
 
 test('highlight splits every occurrence, preserves Unicode and avoids shifted lowercase offsets', () => {
@@ -36,4 +36,11 @@ test('shortlist preserves added order, prefers exact matches and resolves marker
   assert.equal(result[2].entry.text, 'Gone');
   assert.equal(result[3].entry.text, 'Plain text');
   assert.equal(result[3].missing, false);
+});
+
+test('comments are split at every " # ", one per line', () => {
+  assert.deepEqual(commentsFor(''), []);
+  assert.deepEqual(commentsFor('Notiz'), ['Notiz']);
+  assert.deepEqual(commentsFor('alt # 2026-10-20 neu # 2026-10-21'), ['alt', '2026-10-20 neu', '2026-10-21']);
+  assert.deepEqual(commentsFor(parseJournal('@todo A # x#y # z')[0].note), ['x#y', 'z']);
 });

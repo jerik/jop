@@ -28,6 +28,9 @@ export function linkParts(text) {
   return parts.length ? parts : [{ text }];
 }
 
+/** Comments of an entry, one per ' # ' separated part. */
+export const commentsFor = note => note ? note.split(' # ') : [];
+
 export const LOCAL_VERSION = 'Version: unbekannt (lokal)';
 export function versionFor(text) {
   try {

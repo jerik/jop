@@ -7,6 +7,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 
 function checkPrivacy(source, name) {
   for (const match of source.matchAll(/https?:\/\/[^\s'"`<>]+/g)) {
+    // The SVG namespace names a vocabulary for createElementNS; nothing is fetched from it.
+    if (match[0] === 'http://www.w3.org/2000/svg') continue;
     assert.equal(new URL(match[0]).hostname, 'api.github.com', `${name}: external URL`);
   }
   assert.doesNotMatch(source, /repos\/[\w.-]+\/[\w.-]+/, `${name}: hard-wired repository`);
@@ -38,6 +40,7 @@ test('privacy guard detects forbidden URLs, literal repositories and storage key
   for (const source of [
     'https://example.invalid/file',
     'https://api.github.com.example.invalid/file',
+    'http://www.w3.org/2000/svg/other',
     'repos/example/journal',
     "localStorage.setItem('secret', text)",
     'storage.getItem("secret")',

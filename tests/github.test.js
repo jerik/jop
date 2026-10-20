@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchJournal, messageFor } from '../github.js';
+import { fetchJournal, messageFor, sendEdit, editMessageFor } from '../github.js';
 
 // Synthetic access details, unrelated to the owner's private journal.
 const config = { owner: 'test owner', repo: 'test repo', path: 'folder/test file.txt', token: 'test-secret' };
@@ -75,4 +75,26 @@ test('network and interrupted body failures produce offline results without exce
     { kind: 'error', reason: 'offline', status: 200 });
   assert.equal(messageFor({ kind: 'fresh' }), '');
   assert.equal(messageFor({ kind: 'unchanged' }), '');
+});
+
+test('an edit is one encoded POST to the dispatch API; errors are named', async () => {
+  const calls = [];
+  const edit = { line: '@todo Film', occurrence: 2, replacement: '@done Film # 2026-10-20' };
+  const result = await sendEdit(config, edit, async (...args) => { calls.push(args); return { status: 204 }; });
+  assert.deepEqual(result, { kind: 'sent' });
+  assert.equal(calls.length, 1);
+  const [url, options] = calls[0];
+  assert.equal(url, 'https://api.github.com/repos/test%20owner/test%20repo/dispatches');
+  assert.equal(options.method, 'POST');
+  assert.equal(options.headers.Authorization, 'Bearer test-secret');
+  assert.equal(options.headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(options.body), { event_type: 'journal-edit', client_payload: edit });
+  for (const [status, reason] of [[401, 'unauthorized'], [403, 'read-only'], [404, 'read-only'], [422, 'other']]) {
+    const reply = await sendEdit(config, edit, async () => ({ status }));
+    assert.equal(reply.reason, reason);
+    assert.ok(editMessageFor(reply));
+  }
+  const offline = await sendEdit(config, edit, async () => { throw new Error('offline'); });
+  assert.match(editMessageFor(offline), /Verbindung/);
+  assert.match(editMessageFor({ reason: 'read-only' }), /Read and write/);
 });

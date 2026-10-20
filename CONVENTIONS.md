@@ -7,10 +7,15 @@ to the prompt of every run on this repository.
 ## What jop is
 
 A phone web app (PWA, used on iOS) that **reads** a plain-text journal from a
-private GitHub repository and lets the owner list and filter its entries.
+private GitHub repository, lets the owner list and filter its entries, and
+edit their state and comments.
 
-- **Read-only.** jop never writes to GitHub: no `PUT`, no commits, no editing
-  of entries. Writing is out of scope until the owner opens an issue for it.
+- **One way to write.** jop changes the journal only by sending a
+  `repository_dispatch` `journal-edit` with the old line, its occurrence and
+  the new line (#15). A workflow in the private repository applies it and
+  refuses anything but a marker swap plus one appended ` # yyyy-mm-dd …`. No
+  `PUT`, no commits from the app, no other kind of write; widening this needs
+  an issue from the owner.
 - The journal format is explained in the issue that asks for the parser. Once
   it is implemented, the parser and its tests are the reference.
 
@@ -22,14 +27,23 @@ This repository is public; the journal and its location are not.
   token into this repository** — not as a default, not as an example, not in
   a test. The app asks for them in a setup step on the device and stores them
   only there.
-- The token is a fine-grained personal access token with read-only access to
-  one repository. Never log it, render it, or send it anywhere but
+- The token is a fine-grained personal access token for one repository with
+  Contents: Read and write (the dispatch API requires write). Never log it, render it, or send it anywhere but
   `api.github.com`.
 - **The only network destination is `api.github.com`.** No CDN, no web fonts,
   no analytics, no third-party scripts. Everything the app needs ships in this
   repository.
 - `journal.anon.txt` is an anonymised copy of a real journal and serves as the
   **test fixture**. Do not modify it; tests may count on its exact content.
+
+## Every sub page uses the same frame
+
+Every view besides the list is an entry of `PAGES` in `app.js`, reached at
+`#/<name>`. A page returns only its title and body; `mountApp` adds the frame —
+a sticky header with the back button and the title, then the notice. Back goes
+through browser history, so the button and the iOS edge swipe agree.
+`tests/app.test.js` checks the frame for every entry of `PAGES`. A new page goes
+into `PAGES`, never into its own branch of `render`.
 
 ## No build step, no dependencies
 

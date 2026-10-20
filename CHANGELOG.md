@@ -3,7 +3,22 @@
 Änderungen an jop, neueste zuerst, gruppiert nach dem Tag, an dem sie live
 gingen. Jede Zeile steht für ein Issue und sagt, was sich bei der Benutzung
 ändert; den Wortlaut des Auftrags und die Umsetzung enthält das Issue. Welche
-Version auf dem iPhone läuft, zeigt die Infoseite (`ⓘ`).
+Version auf dem iPhone läuft, zeigt die Infoseite (Info-Symbol).
+
+## 2026-10-20
+
+- Einträge lassen sich bearbeiten: der Stift öffnet eine Seite, auf der man den
+  Status frei wechselt und einen Kommentar anhängt; eine Vorschau zeigt die
+  neue Zeile. Ein Wechsel nach `@done`, `@canceled` oder `@past` hängt das
+  Datum an, ein Kommentar steht als „# yyyy-mm-dd Text“ am Ende. Bis die
+  Änderung in der Datei angekommen ist, steht beim Eintrag „wird übernommen …“.
+  Der Token braucht dafür Contents: Read and write. (#15)
+- Shortlist, Info und Bearbeiten haben oben einen festen Kopf mit „Zurück“;
+  Zurück geht auch per Wischen vom linken Rand und landet an der vorherigen
+  Stelle der Liste. `@todo` wird wie jeder Marker angezeigt, mehrere
+  Kommentare stehen je auf einer eigenen Zeile. (#14)
+- Stern, Stift, Info, Kreuz und Zurück sind einheitliche Symbole (Lucide)
+  statt Schriftzeichen; ein gemerkter Eintrag hat einen gefüllten Stern. (#16)
 
 ## 2026-10-19
 

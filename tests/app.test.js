@@ -144,11 +144,161 @@ class Node {
   append(...nodes) { this.children.push(...nodes); }
   replaceChildren(...nodes) { this.children = nodes; }
   setAttribute(name, value) { this[name] = value; }
+  get classList() { return { add: name => { this.className = [this.className, name].filter(Boolean).join(' '); } }; }
   addEventListener(name, handler) { this.listeners[name] = handler; }
   all(tag) { return this.children.flatMap(child => [child, ...child.all('*')]).filter(child => tag === '*' || child.tag === tag); }
   get elements() { return this.all('input'); }
   reset() { for (const input of this.elements) input.value = ''; }
 }
+
+// History double: pushState/replaceState keep a stack, back() fires popstate.
+function fakeWindow(hash = '') {
+  const listeners = {};
+  const stack = [{ state: null, hash }];
+  let index = 0;
+  const win = {
+    scrollY: 0,
+    location: { pathname: '/jop/', search: '', get hash() { return stack[index].hash; } },
+    history: {
+      get state() { return stack[index].state; },
+      get length() { return stack.length; },
+      pushState(state, _, url) { stack.splice(index + 1); stack.push({ state, hash: url }); index++; },
+      replaceState(state, _, url) { stack[index] = { state, hash: url.includes('#') ? url.slice(url.indexOf('#')) : '' }; },
+      back() { if (index > 0) { index--; listeners.popstate(); } },
+    },
+    addEventListener: (name, listener) => { listeners[name] = listener; },
+    scrollTo: (x, y) => { win.scrollY = y; },
+    requestAnimationFrame: callback => callback(),
+    fire: name => listeners[name](),
+  };
+  return win;
+}
+
+// Mounted app with stored access; text is what the next fetch returns.
+async function mounted(text, { hash = '', dispatchStatus = 204 } = {}) {
+  const { mountApp } = await import('../app.js');
+  const root = new Node('main');
+  const win = fakeWindow(hash);
+  const h = { root, win, text, dispatches: [], timers: [], dispatchStatus, shortlist: [] };
+  const document = {
+    getElementById: () => root,
+    createElement: tag => new Node(tag),
+    createElementNS: (namespace, tag) => new Node(tag),
+    createTextNode: value => new Node('#text', value),
+    addEventListener() {},
+    visibilityState: 'visible',
+  };
+  const store = {
+    loadConfig: () => config, loadFile: () => null, saveConfig: () => true, saveFile: () => true,
+    clearConfig: () => true, loadShortlist: () => h.shortlist, saveShortlist: list => { h.shortlist = [...list]; return true; },
+  };
+  h.app = mountApp(document, {}, store, async (url, options) => {
+    if (url.endsWith('/dispatches')) { h.dispatches.push(JSON.parse(options.body)); return { status: h.dispatchStatus }; }
+    if (url === './version.json') return { ok: false };
+    return { status: 200, headers: new Map(), text: async () => h.text };
+  }, () => true, { win, today: () => '2026-10-20', timer: callback => h.timers.push(callback) });
+  await h.app.refresh();
+  h.button = label => root.all('button').find(node => node.textContent === label || node['aria-label'] === label);
+  h.texts = className => root.all('p').filter(node => node.className === className).map(node => node.all('#text').map(t => t.textContent).join('') || node.textContent);
+  return h;
+}
+
+test('every sub page renders inside the same frame: sticky header with back button and title', async () => {
+  const { PAGES } = await import('../app.js');
+  const h = await mounted('@todo :lesen Erstes # Notiz');
+  for (const name of Object.keys(PAGES)) {
+    // The edit page needs an entry, so it is opened the way the owner opens it.
+    if (name === 'edit') h.button('Bearbeiten').listeners.click();
+    else { h.win.history.pushState({ jop: true }, '', `#/${name}`); h.win.fire('popstate'); }
+    await h.app.refresh();
+    const [header] = h.root.children;
+    assert.equal(header.tag, 'header', name);
+    assert.equal(header.className, 'page-header', name);
+    assert.equal(header.children[0]['aria-label'], 'Zurück', name);
+    assert.equal(header.children[1].tag, 'h2', name);
+    h.button('Zurück').listeners.click();
+    assert.equal(h.root.children[0].textContent, 'jop', name);
+  }
+});
+
+test('hash routes: back goes through history, keeps the list scroll, and stale routes fall back to the list', async () => {
+  const h = await mounted('@todo Erstes');
+  h.win.scrollY = 480;
+  h.button('Shortlist (0)').listeners.click();
+  assert.equal(h.win.location.hash, '#/shortlist');
+  assert.equal(h.win.scrollY, 0);
+  assert.ok(h.root.all('h2').some(node => node.textContent === 'Shortlist (0)'));
+  h.button('Zurück').listeners.click();
+  assert.equal(h.win.location.hash, '');
+  assert.equal(h.win.scrollY, 480);
+  assert.equal(h.win.history.length, 2);
+
+  const opened = await mounted('@todo Erstes', { hash: '#/info' });
+  assert.ok(opened.root.all('h2').some(node => node.textContent === 'Info'));
+  opened.button('Zurück').listeners.click();
+  assert.equal(opened.win.location.hash, '');
+  assert.equal(opened.win.history.length, 1);
+  assert.equal(opened.root.children[0].textContent, 'jop');
+
+  const stale = await mounted('@todo Erstes', { hash: '#/edit' });
+  assert.equal(stale.win.location.hash, '');
+  assert.equal(stale.root.children[0].textContent, 'jop');
+});
+
+test('entries show every marker and one line per comment', async () => {
+  const h = await mounted('@todo :lesen Erstes # alt # 2026-10-20 neu');
+  assert.deepEqual(h.texts('marker'), ['@todo']);
+  assert.deepEqual(h.texts('note'), ['alt', '2026-10-20 neu']);
+});
+
+test('editing sends the new line, marks the entry until the file shows it, and the shortlist follows', async () => {
+  const h = await mounted('@todo Same\n@todo-wait Warten # alt\n@todo Same');
+  h.button('wait (1)').listeners.click();
+  const item = h.root.all('li')[0];
+  item.all('button')[0].listeners.click();
+  assert.deepEqual(h.shortlist, ['@todo-wait Warten # alt']);
+  item.all('button').find(node => node['aria-label'] === 'Bearbeiten').listeners.click();
+  assert.equal(h.win.location.hash, '#/edit');
+  const preview = () => h.root.all('p').find(node => node.className === 'preview').textContent;
+  const save = h.button('Speichern');
+  assert.equal(preview(), 'Keine Änderung');
+  assert.equal(save.disabled, true);
+  const radios = h.root.all('input').filter(node => node.type === 'radio');
+  assert.deepEqual(radios.map(node => node.value), ['@todo', '@todo-next', '@todo-wait', '@todo-periodic', '@done', '@canceled', '@past']);
+  assert.equal(radios.find(node => node.checked).value, '@todo-wait');
+  radios.find(node => node.value === '@done').listeners.change();
+  assert.equal(preview(), 'Neu: @done Warten # alt # 2026-10-20');
+  const comment = h.root.all('input').find(node => node.type === 'text');
+  comment.value = 'erledigt';
+  comment.listeners.input();
+  assert.equal(preview(), 'Neu: @done Warten # alt # 2026-10-20 erledigt');
+  save.listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.win.location.hash, '');
+  assert.deepEqual(h.dispatches, [{ event_type: 'journal-edit', client_payload: {
+    line: '@todo-wait Warten # alt', occurrence: 1, replacement: '@done Warten # alt # 2026-10-20 erledigt',
+  } }]);
+  assert.ok(h.texts('note pending').length === 1);
+  assert.ok(!h.root.all('button').some(node => node['aria-label'] === 'Bearbeiten'));
+  assert.equal(h.timers.length, 1);
+  h.text = '@todo Same\n@done Warten # alt # 2026-10-20 erledigt\n@todo Same';
+  h.timers.shift()();
+  await h.app.refresh();
+  assert.equal(h.texts('note pending').length, 0);
+  assert.deepEqual(h.shortlist, ['@done Warten # alt # 2026-10-20 erledigt']);
+  assert.equal(h.timers.length, 0);
+});
+
+test('the second of two identical lines is sent with its occurrence; a refused dispatch is visible', async () => {
+  const h = await mounted('@todo Same\n@done Other\n@todo Same', { dispatchStatus: 403 });
+  h.root.all('li')[0].all('button').find(node => node['aria-label'] === 'Bearbeiten').listeners.click();
+  h.root.all('input').find(node => node.value === '@todo-next').listeners.change();
+  h.button('Speichern').listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.dispatches[0].client_payload.occurrence, 2);
+  assert.match(h.texts('notice').join(' '), /Read and write/);
+  assert.equal(h.texts('note pending').length, 0);
+});
 
 test('DOM wires setup, default state, combined filters, visibility refresh and access deletion', async () => {
   const { mountApp } = await import('../app.js');
@@ -157,6 +307,7 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   const document = {
     getElementById: () => root,
     createElement: tag => new Node(tag),
+    createElementNS: (namespace, tag) => new Node(tag),
     createTextNode: text => new Node('#text', text),
     addEventListener: (name, listener) => { events[name] = listener; },
     visibilityState: 'hidden',
@@ -175,7 +326,7 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
       status: 200, headers: new Map(),
       text: async () => '@todo :lesen Erstes # Notiz\n@done :lesen Fertig\n@todo-next :lesen Zweites',
     };
-  }, message => { confirmations.push(message); return confirmed; });
+  }, message => { confirmations.push(message); return confirmed; }, { win: fakeWindow() });
   assert.equal(root.all('form').length, 1);
   const form = root.all('form')[0];
   for (const input of form.elements) input.value = config[input.name] ?? '';
@@ -189,11 +340,13 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   const originalItem = root.all('li')[0];
   const star = originalItem.all('button')[0];
   star.listeners.click();
-  assert.equal(star.textContent, '★');
+  assert.equal(star['aria-pressed'], 'true');
+  assert.equal(star['aria-label'], 'Von Shortlist entfernen');
+  assert.equal(star.all('svg').length, 1);
   assert.equal(root.all('li')[0], originalItem);
-  assert.ok(root.all('button').some(node => node.textContent === '★ 1'));
+  assert.ok(root.all('button').some(node => node['aria-label'] === 'Shortlist (1)'));
   star.listeners.click();
-  assert.equal(star.textContent, '☆');
+  assert.equal(star['aria-pressed'], 'false');
   const details = root.all('details')[0];
   assert.equal(details.open, false);
   assert.equal(root.all('summary')[0].textContent, 'Tags · 0 aktiv');
@@ -227,7 +380,7 @@ test('DOM wires setup, default state, combined filters, visibility refresh and a
   assert.equal(document.activeElement, refreshedSearch);
   assert.equal(root.all('details')[0].open, true);
   assert.equal(root.all('li').length, 1);
-  root.all('button').find(node => node.textContent === 'ⓘ').listeners.click();
+  root.all('button').find(node => node['aria-label'] === 'Info').listeners.click();
   root.all('button').find(node => node.textContent === 'Zugang löschen').listeners.click();
   assert.ok(stored);
   document.visibilityState = 'visible';
@@ -260,4 +413,30 @@ test('createApp owns shortlist order, defensive reads, persistence and access de
   app.toggleShortlist('C');
   app.clear();
   assert.deepEqual(app.readShortlist(), []);
+});
+
+test('an edit that never reaches the file is dropped after the timeout with a notice; clear stops polling', async () => {
+  const { EDIT_TIMEOUT_MS } = await import('../app.js');
+  let clock = 0;
+  const timers = [];
+  const app = createApp({
+    store: { loadConfig: () => config, loadFile: () => copy, saveFile: () => true, clearConfig: () => true },
+    fetchImpl: async url => url.endsWith('/dispatches') ? { status: 204 } : { status: 304 },
+    timer: callback => timers.push(callback), now: () => clock,
+  });
+  assert.equal(await app.edit({ line: '@todo Lesen', occurrence: 1, replacement: '@done Lesen # 2026-10-20' }), true);
+  assert.deepEqual(app.snapshot().pendingLines, ['@todo Lesen']);
+  timers.shift()();
+  await app.refresh();
+  assert.deepEqual(app.snapshot().pendingLines, ['@todo Lesen']);
+  clock = EDIT_TIMEOUT_MS + 1;
+  timers.shift()();
+  await app.refresh();
+  assert.deepEqual(app.snapshot().pendingLines, []);
+  assert.match(app.snapshot().editNotice, /zwei Minuten/);
+  await app.edit({ line: '@todo Lesen', occurrence: 1, replacement: '@todo-next Lesen' });
+  app.clear();
+  assert.deepEqual(app.snapshot().pendingLines, []);
+  for (const callback of timers.splice(0)) callback();
+  assert.equal(app.snapshot().screen, 'setup');
 });
