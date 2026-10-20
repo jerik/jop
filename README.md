@@ -201,6 +201,8 @@ auf `master`:
 branch=objective/OBJ-2   # bzw. master
 gh api -X PATCH repos/jerik/jop -f default_branch="$branch"
 gh api -X PUT repos/jerik/jop/pages -f "source[branch]=$branch" -f 'source[path]=/'
+gh api -X POST repos/jerik/jop/pages/builds   # die Umstellung allein baut nicht neu
+gh api repos/jerik/jop/pages/builds/latest -q '.status + " " + .commit'
 ```
 
 Die installierte App merkt davon nichts außer der neuen Version: Adresse,
