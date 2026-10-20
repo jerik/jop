@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { inflateSync } from 'node:zlib';
 import { makeIcon } from '../tools/generate-icons.js';
+import { createHash } from 'node:crypto';
 
 const read = name => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
 function worker(caches, fetch = () => { throw new Error('Unexpected network'); }) {
@@ -96,4 +97,25 @@ test('committed icons reproduce the generator and have valid dimensions and imag
     const compressedSize = png.readUInt32BE(33);
     assert.equal(inflateSync(png.subarray(41, 41 + compressedSize)).length, size * (1 + size * 3));
   }
+});
+
+// Fingerprint of everything the worker caches. A shipped file that changes
+// without a new CACHE_VERSION would never reach an installed app.
+function shellFingerprint() {
+  const source = read('sw.js');
+  const shell = JSON.parse(source.match(/const SHELL = (\[[\s\S]*?\]);/)[1].replace(/'/g, '"').replace(/,\s*\]/, ']'));
+  const hash = createHash('sha256');
+  for (const path of shell.filter(path => path !== './')) {
+    hash.update(path);
+    hash.update(readFileSync(new URL(`../${path}`, import.meta.url)));
+  }
+  return { version: source.match(/const CACHE_VERSION = '([^']+)'/)[1], hash: hash.digest('hex') };
+}
+
+test('a change to any cached file comes with a new CACHE_VERSION', () => {
+  const { version, hash } = shellFingerprint();
+  const known = JSON.parse(read('tests/shell-versions.json'));
+  assert.equal(known[version], hash,
+    `Shipped files changed. Raise CACHE_VERSION in sw.js and add "${version.replace(/\d+$/, n => Number(n) + 1)}": "<hash>" to tests/shell-versions.json (current hash ${hash}).`);
+  assert.equal(new Set(Object.values(known)).size, Object.keys(known).length, 'two cache versions share one fingerprint');
 });

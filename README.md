@@ -101,7 +101,10 @@ passieren soll.
    läuft die neue Version: auf der Infoseite (Info-Symbol) die Commit-Kennung und Buildzeit mit der
    vorherigen Version vergleichen. Offline erscheint dieselbe laufende Version. Zugang und letzte Kopie bleiben erhalten, eine neue
    Einrichtung ist nicht nötig. Zeigt sich die neue Version noch nicht, den
-   Vorgang einmal wiederholen.
+   Vorgang einmal wiederholen. „Zugang löschen“ hilft hier nicht, es leert den
+   Zwischenspeicher der App nicht. Läuft nach zwei Versuchen noch die alte
+   Version: das jop-Symbol vom Home-Bildschirm entfernen, nach Schritt 3 neu
+   hinzufügen und nach Schritt 4 neu einrichten.
 10. **Zugang löschen.** Auf der Infoseite „Zugang löschen“ tippen und bestätigen, jop ganz
     schließen und wieder öffnen. – Das Einrichtungsformular erscheint; weder
     Zugang noch alte Einträge oder die Shortlist sind noch zu sehen.
@@ -178,6 +181,32 @@ node --test
 Lokal ansehen: `python3 -m http.server 8000 --bind 127.0.0.1` im
 Repository-Verzeichnis starten und im Browser Port 8000 dieses Rechners öffnen.
 Service Worker und Offline-Start brauchen HTTPS oder localhost.
+
+### Auslieferung
+
+GitHub Pages liefert jop unter `https://jerik.github.io/jop/` aus, aus dem
+Wurzelverzeichnis eines Branches:
+
+- **Zwischen zwei Objectives aus `master`.** `master` ist die Fassung, die der
+  Owner auf dem iPhone abgenommen hat.
+- **Während eines Objectives aus `objective/OBJ-<n>`.** So prüft der Owner jede
+  Iteration auf dem iPhone, bevor er mergt. Für dieselbe Zeit ist dieser Branch
+  auch der Standardbranch, weil der Dispatcher von agenterix Issues nur gegen
+  den Standardbranch bearbeitet (agenterix `DECISIONS.md`, 2026-10-15).
+
+Umstellen, am Anfang eines Objectives auf seinen Branch, nach dem Merge zurück
+auf `master`:
+
+```bash
+branch=objective/OBJ-2   # bzw. master
+gh api -X PATCH repos/jerik/jop -f default_branch="$branch"
+gh api -X PUT repos/jerik/jop/pages -f "source[branch]=$branch" -f 'source[path]=/'
+```
+
+Die installierte App merkt davon nichts außer der neuen Version: Adresse,
+`id`, `start_url` und `scope` bleiben gleich, Zugang, Kopie und Shortlist
+bleiben auf dem Gerät. Die neue Version übernimmt wie jede andere erst nach
+Prüfpunkt 9.
 
 ### `parser.js` und `filter.js`
 
@@ -282,5 +311,7 @@ Nach jeder Änderung an einer ausgelieferten Datei in `sw.js` die Konstante
 `CACHE_VERSION` hochzählen (z. B. `jop.shell.v2` → `jop.shell.v3`). Nur dann
 lädt das iPhone die neuen Dateien; die alte Version wird beim Aktivieren
 gelöscht. Kommt eine Datei neu hinzu, gehört sie zusätzlich in die Liste
-`SHELL`. Wirksam wird die neue Version, wenn die App einmal ganz geschlossen
+`SHELL`. `node --test` erinnert daran: Ändert sich eine ausgelieferte Datei,
+schlägt der Test fehl, bis die neue Version mit dem Fingerabdruck aus der
+Fehlermeldung in `tests/shell-versions.json` steht. Wirksam wird die neue Version, wenn die App einmal ganz geschlossen
 und wieder geöffnet wird (Prüfpunkt 9).

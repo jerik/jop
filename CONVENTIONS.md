@@ -45,6 +45,25 @@ through browser history, so the button and the iOS edge swipe agree.
 `tests/app.test.js` checks the frame for every entry of `PAGES`. A new page goes
 into `PAGES`, never into its own branch of `render`.
 
+## Branches and what runs on the phone
+
+- `master` is the version the owner accepted on the iPhone. Work for an
+  objective happens on `objective/OBJ-<n>`; for its duration that branch is
+  the default branch and the GitHub Pages source, so every iteration can be
+  tried on the phone. Only the owner merges it; afterwards both go back to
+  `master` (README, „Auslieferung“).
+- The installed app survives a switch: keep `id`, `start_url` and `scope` in
+  the manifest relative (`./`), or the phone treats it as a new app and loses
+  access, copy and shortlist.
+- **Every change to a shipped file bumps `CACHE_VERSION` in `sw.js`**, and a
+  new file also goes into `SHELL`. The worker answers from its cache first;
+  without a new version the phone keeps running the old files.
+  `tests/pwa.test.js` fails until the new version and its fingerprint are
+  added to `tests/shell-versions.json`; the failure message gives both.
+- A new version takes over only after the app was closed completely once;
+  „Zugang löschen“ does not clear the cache. Say so in the manual checks of
+  every change that ships (README check 9).
+
 ## No build step, no dependencies
 
 - Plain ES modules (`"type": "module"`), served as they are. The same module
